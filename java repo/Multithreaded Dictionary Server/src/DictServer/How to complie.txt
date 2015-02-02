@@ -1,0 +1,8 @@
+To complie DictServer:
+
+cd   \...\523979\src\DictServer
+javac *.java
+
+To Start Server:
+cd   \...\523979\src\DictServer
+java DictServer <port>  smallDict.txt

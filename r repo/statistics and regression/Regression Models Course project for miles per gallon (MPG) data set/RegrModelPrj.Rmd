@@ -1,0 +1,97 @@
+---
+title: "Regression Models Course Project"
+output: pdf_document
+---
+
+## Executive summary: 
+This report is try to make some exploring of the relationships between the a set of variables and miles per gallon (MPG), especially try to address wheter automatic or manual transmission better for MPG, and quantifying how different is the MPG between automatic and manual transmissions. The data used in this analysis is come from the Motor Trend,a magazine about the automobile industry. The analysis is with the linear fitting models.The final model show that manual transimission is better for MPG. It shows there is a 2.936 miles mpg increase with manual cars under the statistics significance.
+
+## Data loading and exploratory analysis
+```{r,echo=FALSE}
+rm(list=ls())
+data(mtcars)
+```
+The data loading is with the data() function. After that, we can do a inital check for mtcars:
+```{r,echo=TRUE}
+head(mtcars,n=2)
+```
+The graph plot can show there are some difference in mpg between the manual and automatic transmissions(see appendix).
+
+## Initial Quantifying analysis
+```{r,echo=FALSE,results='hide'}
+tapply(mtcars$mpg, mtcars$am, mean)
+```
+To quantify address the question, we can do a T testing for automatic and manual groups:
+```{r,echo=TRUE}
+ya <- mtcars$mpg[mtcars$am == 0]
+ym <- mtcars$mpg[mtcars$am == 1]
+t<-t.test(ym, ya, paired=FALSE)
+t$p.value; t$conf.int[1:2];
+```
+The p-value = 0.001374. The difference of two groups' 95% confidence interval is [3.209684~11.280194]. These show that the difference of mpg between automatical and manual is confidential statistics significance.
+
+## Approaches to regression Models
+The linear regression models will be built with two approaches: correlation coefficients based and stepwise algorithm based.
+
+### Correlation coefficients based approach
+This approach starts from checking mpg's correlations coefficients to other vaiables in the mtcars: 
+```{r,echo=TRUE}
+sort(cor(mtcars)[1,])
+```
+We can see that the absoulte value of correlation coeficients from high to low are: wt,cyl,disp and hp. As the first trial, we can fit linear model with these variables. But we also noticed that there is a correlation between cyl and disp which is 0.90203287 from the complted variables correlation coefficients matrix, so disp can be droped from model. Thus we can get the following possible models:
+```{r,echo=TRUE}
+cormodel1 = lm(mpg ~ factor(am), data = mtcars)
+cormodel2 = update(cormodel1, mpg ~ factor(am) + wt)
+cormodel3 = update(cormodel2, mpg ~ factor(am) + wt + cyl)
+cormodel4 = update(cormodel3, mpg ~ factor(am) + wt + cyl + hp)
+```
+The P-values of model base on anova analysis are: 
+```{r,echo=TRUE}
+anova(cormodel1, cormodel2, cormodel3, cormodel4)$Pr
+```
+The results show the cormodel4's p-value bigger than the statistical signifiance level=0.0.5, so the best fitted model is cormodel3. The coefficients of it are:
+```{r,echo=FALSE}
+cormodel3$coefficients
+```
+The R-squared is `r summary(cormodel3)$r.squared`, after adjusting, R-Squareted becomes to `r summary(cormodel3)$adj.r.squared`.This means this model can capture 83% of total variance and the adjusted captured rate is 81.2%.
+
+### Approach with stepwise algorithm function step()
+The second approach is with the stepwise algorithm function step(). The result is:
+```{r,echo=TRUE}
+stepmodel = step(lm(data = mtcars, mpg ~ .),trace=0, steps=10000)
+summary(stepmodel)$coefficients
+```
+We can see that step function selects the wt, qsec and am as the model variables. The r-squared is `r summary(stepmodel)$r.squared`. The adjusted r-squared is `r summary(stepmodel)$adj.r.squared`.This is better than the first approach, which shows there are some strong correlationship between first approach's model predictors. So this model was selected as the final predictiong model.
+
+## Conclussion
+With above approach, the final selected fitting model can have 85% total variance capturing rate, the adjusted rate is 83.4%. The final model selected the wt, qsec and am as the model variables to predict mpg. The coefficients are: -3.917, 1.226 and 2.936. From these coefficents, we ccould see when the weight increased 1000 lbs, the mpg decreased, -3.917 miles, when the qsec increase 1 second, the mpg increasing 1.226 miles. More important, the fitted model shows that manual cars has a 2.936 miles increase of the mpg under statistic significance.
+
+
+## Appendix
+In this appendix, we will show the plots of mpg distribution and the residual and diagnostic plots for the studied regression models.
+
+ * The graph to show mpg difference between automatic and manual transmission:
+```{r,echo=TRUE,fig.width=9,fig.height=3.5}
+library(ggplot2)
+library(gridExtra)
+
+# density distribiution
+g1<-ggplot(mtcars, aes(mpg, fill = as.factor(am))) + geom_density(alpha = 0.2)
+ # box plotting
+g2<-ggplot(mtcars, aes(x=am, y=mpg, fill=as.factor(am))) + geom_boxplot()
+
+grid.arrange(g1,g2, ncol=2)
+```
+
+ * The correlation coefficients based model:
+```{r,echo=TRUE}
+par(mfrow= c(2,2))
+plot(cormodel3)
+```
+
+ * The final Stepwise algorithm based model:
+```{r,echo=TRUE}
+par(mfrow= c(2,2))
+plot(stepmodel)
+```
+

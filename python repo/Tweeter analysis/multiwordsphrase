@@ -1,0 +1,9 @@
+import string
+num = 0
+sent_list = open("AFINN-111.txt")
+for line in sent_list:
+    if " " in line:       # if the line contains a space
+       print line
+       num+=1
+print num
+print string.punctuation

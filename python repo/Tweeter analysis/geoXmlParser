@@ -1,0 +1,26 @@
+import xml.etree.ElementTree as ET
+import urllib2 as urllib
+
+def main():
+    xmldat = urllib.urlopen("http://econym.org.uk/gmap/states.xml")
+    jsonfile= open('ploystates.txt','w')
+
+    tree = ET.parse(xmldat)
+    root = tree.getroot()
+    print  root.tag
+
+    l=0
+    for child in root:
+        l=l+1
+        print "The %s th state:" % l
+        print child.tag, child.attrib
+        jsonfile.write("[{state:%s,points:[" % child.attrib['name'])
+        for point in child:
+#           print point.tag,point.attrib
+            jsonfile.write("%s," % point.attrib)
+        jsonfile.seek(-1,1)
+        jsonfile.write("]}]\n")
+
+
+if __name__ == '__main__':
+    main()

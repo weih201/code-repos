@@ -1,0 +1,555 @@
+============================================
+src/assign3-stage1.py
+09:54:52_Tuesday_01_May_2012
+============================================
+#! /usr/bin/python
+#     File        : assign3-stage1.py
+#     Author      : wei han (weih 523979)
+#     Date  : Sun. Apri. 29, 2012
+#
+#     Description:
+#     The program assign3-stage1.py is intend to read a local GenBank file 
+#     and extract the tRNA sequence from it.
+#           
+#     The program is based on the BioPython libraries. 
+#     The main data structure is the tRNAInfo dictionary structure which 
+#     store a individual tRNA sequence info.
+#     A dictionary list rna_list is used to store all tRNAInfo objects.
+#
+
+from Bio import SeqIO
+import sys
+
+# get the command line parameters
+parameters = sys.argv
+argc = len(parameters)
+
+# Error if the number of command line parameters is not equal to 2
+if argc != 2:
+      print 'Usage assign3-stage1.py filename'
+      sys.exit()
+
+# got the input GenBank file name
+filename = parameters[1] 
+# Parsing the access number from the input file name
+access_no = filename.split(".")[0]
+
+# open input file
+input_handle = open(filename, "rU")
+
+# parse the file into a list of Seq objects
+seqlist = SeqIO.parse(input_handle, "genbank")
+
+rna_list = []  #dictionary list 
+
+# initializing the tRNA sequence no
+number = 1
+# go through the list of Seq objects
+for record in seqlist:
+    # get the length of the sequence in the Seq record
+    length = len(record.seq);
+      
+      # go through the current Seq record's feature
+    for feature in record.features:
+      # if the current feture type is tRNA, further parsing
+        if feature.type=="tRNA":
+            # create a new tRNAInfo dictionary item
+            tRNAInfo = {}
+            # store access number
+            tRNAInfo["access_no"] = access_no
+            # storing tRNA sequence No.
+            tRNAInfo["tRNA_No"] = "tRNA "+str(number)
+            # extract tRNA sequence
+            tRNAInfo["seq"] = feature.extract(record.seq)
+                  
+            # parsing and storing Product info
+            proStr = str(feature.qualifiers["product"])
+            l = len(proStr)
+            proStr = proStr[2:(l-2)]
+            tRNAInfo["product"] = proStr
+                  
+            # Append the dictionary item into ran_list 
+            rna_list.append(tRNAInfo)
+            # Sequence no plus one
+            number += 1
+#end for loop
+
+LEN = len(rna_list)  # the DNA seq number in the file
+i=0
+while i<LEN:  # loop every DNA item in the list
+      # output the stored tRNA item with the FASTA form
+      print ">"+rna_list[i]["access_no"]+", "+rna_list[i]["tRNA_No"]+", "+ rna_list[i]["product"]
+      print rna_list[i]["seq"]
+      i+=1  # move to next DNA sequnece
+
+# close the opened files    
+input_handle.close() 
+# end of program
+============================================
+src/assign3-stage2.py
+09:54:52_Tuesday_01_May_2012
+============================================
+#! /usr/bin/python
+#     File        : assign3-stage2.py
+#     Author      : wei han (weih 523979)
+#     Date  : Sun. Apri. 29, 2012
+#
+#     Description:
+#     The program assign3-stage2.py is intend to read a GenBank file directly 
+#     from GenBank and extract the tRNA sequence from it.
+#           
+#     Similar to stage 1, the program is based on the BioPython libraries. 
+#     The main data structure is the tRNAInfo dictionary structure which 
+#     store a individual tRNA sequence info.
+#     A dictionary list rna_list is used to store all tRNAInfo objects.
+#
+
+from Bio import Entrez
+from Bio import SeqIO
+import os
+import sys
+
+# mundula needed environemnt varaible. 
+os.environ['http_proxy']=''
+
+# Get command line paramenters
+parameters = sys.argv
+argc = len(parameters)
+
+# error if the number of parameters is not equal to 2
+if argc != 2:
+      print 'Usage assign3-stage2.py access_number'
+      sys.exit()
+
+database = 'nuccore'
+# get the access number from input command line paramter
+access_no = parameters[1].split(".")[0]
+
+# email address for querying Entrez
+Entrez.email = 'weih@student.unimelb.edu.au'
+
+# a local temp file used to tempory store file download form GenBank
+localfile = 'localfile'
+
+# Query the Entrez database
+try:
+      search_handle = Entrez.esearch(db=database,term=access_no, usehistory="y", retmax=1)
+      search_results = Entrez.read(search_handle)
+      search_handle.close()
+except:
+        print "\nCancelled: Problem with network connection."
+        exit(1)   
+
+# Get the found ID list
+gi_list = search_results["IdList"]
+
+# for in this application, just one resource found, so gi_list[0] os ok
+fetch_handle = Entrez.efetch(db="nucleotide", id=gi_list[0], rettype="gb", retmode="text")
+
+# open local file
+out_handle = open(localfile, "w")
+# write the fetched GenBank file into local file
+out_handle.write(fetch_handle.read())
+# close resources
+out_handle.close()
+fetch_handle.close()
+
+# open the localfile with read mode
+input_handle = open(localfile, "rU")
+
+# parse the file into a list of Seq objects
+seqlist = SeqIO.parse(input_handle, "genbank")
+
+rna_list = []  #dictionary list 
+
+# initializing the tRNA sequence no
+number = 1
+# go through the list of Seq objects
+for record in seqlist:
+    # get the length of the sequence in the Seq record
+    length = len(record.seq);
+      
+      # go through the current Seq record's feature
+    for feature in record.features:
+      # if the current feture type is tRNA, further parsing
+        if feature.type=="tRNA":
+            # create a new tRNAInfo dictionary item
+            tRNAInfo = {}
+            # store access number
+            tRNAInfo["access_no"] = access_no
+            # storing tRNA sequence No.
+            tRNAInfo["tRNA_No"] = "tRNA "+str(number)
+            # Extract tRNA Sequnce
+            tRNAInfo["seq"] = feature.extract(record.seq)
+                  
+            # parsing and storing Product info
+            proStr = str(feature.qualifiers["product"])
+            l = len(proStr)
+            proStr = proStr[2:(l-2)]
+            tRNAInfo["product"] = proStr
+                  
+            # Append the dictionary item into ran_list 
+            rna_list.append(tRNAInfo)
+            # Sequence no plus one
+            number += 1
+#end for loop
+
+LEN = len(rna_list)  # the DNA seq number in the file
+i=0
+while i<LEN:  # loop every DNA item in the list
+      # output the stored tRNA item with the FASTA form
+      print ">"+rna_list[i]["access_no"]+", "+rna_list[i]["tRNA_No"]+", "+ rna_list[i]["product"]
+      print rna_list[i]["seq"]
+      i+=1  # move to next DNA sequnece
+
+# close the opened files    
+input_handle.close() 
+# end of program
+============================================
+src/assign3-stage3.py
+09:54:52_Tuesday_01_May_2012
+============================================
+#! /usr/bin/python
+#     File        : assign3-stage3.py
+#     Author      : wei han (weih 523979)
+#     Date  : Sun. Apri. 29, 2012
+#
+#     Description:
+#     In stage3, the program also need output some futher tRNA sequence info 
+#     and input file infomation into a data file assign3-stage3.out besides 
+#     output of the stage2.
+#           
+#     The main data structure in shis stage include:
+#     tRNAInfo dictionary structure which store a individual tRNA sequence info.
+#     A dictionary list rna_list is used to store all tRNAInfo objects.
+#     
+#     refInfo dictionary structure used to store a single reference info,
+#     such as Authors, Title and Journal
+#     ref_list used to store all the refInfo objects
+#
+
+from Bio import Entrez
+from Bio import SeqIO
+import os
+import sys
+
+# mundula needed environemnt varaible. 
+os.environ['http_proxy']=''
+
+# Get command line paramenters
+parameters = sys.argv
+argc = len(parameters)
+
+# error if the number of parameters is not equal to 2
+if argc != 2:
+      print 'Usage assign3-stage2.py access_number'
+      sys.exit()
+
+database = 'nuccore'
+# get the access number from input command line paramter
+access_no = parameters[1].split(".")[0]
+
+# email address for querying Entrez
+Entrez.email = 'weih@student.unimelb.edu.au'
+
+# a local temp file used to tempory store file download form GenBank
+localfile = 'localfile'
+
+# Query the Entrez database
+try:
+      search_handle = Entrez.esearch(db=database,term=access_no, usehistory="y", retmax=1)
+      search_results = Entrez.read(search_handle)
+      search_handle.close()
+except:
+        print "\nCancelled: Problem with network connection."
+        exit(1)   
+
+# Get the found ID list
+gi_list = search_results["IdList"]
+
+# for in this application, just one resource found, so gi_list[0] os ok
+fetch_handle = Entrez.efetch(db="nucleotide", id=gi_list[0], rettype="gb", retmode="text")
+
+# open local file
+out_handle = open(localfile, "w")
+# write the fetched GenBank file into local file
+out_handle.write(fetch_handle.read())
+# close resources
+out_handle.close()
+fetch_handle.close()
+
+# open the localfile with read mode
+input_handle = open(localfile, "rU")
+
+# parse the file into a list of Seq objects
+seqlist = SeqIO.parse(input_handle, "genbank")
+
+rna_list = []     #tRNA dictionary list 
+ref_list = []     #reference dictionary list
+
+# starting from first tRNA sequence
+number = 1
+
+# go through the list of Seq objects
+for record in seqlist:
+    # get the length of the sequence in the Seq record
+    length = len(record.seq);
+
+    # Organism information
+    Organism = "Organism: "+str(record.annotations["organism"])
+    
+    # retrieving and storing all the reference information
+    for reference in record.annotations["references"]:
+            refInfo = {}
+            refInfo["Authors"] = str(reference.authors)
+            refInfo["Title"] = str(reference.title)
+            refInfo["Journal"] = str(reference.journal)
+            ref_list.append(refInfo)
+
+      # retrieving  and storing all the tRNA information
+    for feature in record.features:
+          if feature.type=="tRNA":
+                tRNAInfo = {}
+                # access number
+                tRNAInfo["access_no"] = access_no
+                # tRNA No
+                tRNAInfo["tRNA_No"] = "tRNA "+str(number)
+
+                # tRNA sequence index 
+                lowIndex = feature.location.start.position
+                highIndex = feature.location.end.position
+                                    
+                tRNAInfo["lowIndex"] = lowIndex
+                tRNAInfo["highIndex"] = highIndex
+                  
+                # Extract tRNA Sequnce
+                tRNAInfo["seq"] = feature.extract(record.seq)
+                        
+                # amino acid info
+                proStr = str(feature.qualifiers["product"])
+                l = len(proStr)
+                proStr = proStr[2:(l-2)]
+                tRNAInfo["product"] = proStr
+                # strand info
+                tRNAInfo["strand"] = str(feature.strand)
+                                    
+                rna_list.append(tRNAInfo)
+                number += 1 # to next loop
+#end for loop
+
+# opne the assign3-stage3.out file
+out_handle = open("assign3-stage3.out", "w")
+
+LEN = len(rna_list)  # the DNA seq number in the file
+i=0
+while i<LEN:  # loop every DNA item in the list
+
+     # output the tRNA info with FASTA format to stdout
+      print ">"+rna_list[i]["access_no"]+", "+rna_list[i]["tRNA_No"]+\
+            ", "+ rna_list[i]["product"]
+      print rna_list[i]["seq"]
+        
+      # translating the strand string
+      if rna_list[i]["strand"] == "1":
+            strandStr = "forward"
+      else:
+            strandStr = "reverse"
+      
+       #    write tRNA info into the assign3-stage3.out file
+      saveStr = rna_list[i]["tRNA_No"]+", " + rna_list[i]["product"]+", " \
+                + str(rna_list[i]["lowIndex"])\
+                +" -> "+str(rna_list[i]["highIndex"])+", "+strandStr+"\n"
+      
+      out_handle.write(saveStr)          
+      i+=1  # move to next DNA sequnece
+
+# write the Organism string into assign3-stage3.out file
+out_handle.write("\n"+Organism+"\n\n")
+
+# write all the referenc information into assign3-stage3.out file
+for ref in ref_list:
+      out_handle.write("\nAuthors: "+ref["Authors"]+"\n")
+      out_handle.write("Title: "+ref["Title"]+"\n")
+      out_handle.write("Journal: "+ref["Journal"]+"\n")
+
+# close the opened files    
+input_handle.close()
+out_handle.close()
+# end of program
+============================================
+src/interpretation.docx
+09:54:52_Tuesday_01_May_2012
+============================================
+PK     ! ok~  (   [Content_Types].xml ¢(                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  ´”ÍjÃ0„ï…¾ƒÑµØJz(¥ØÎ¡?Ç6ĞôiˆÚ’6oßµã˜R‡&øb0f¿™”N¶U­ÁmMÆÆÉˆE`¤UÚ,2ö5{‹YP%Jk c;l’ßŞ¤³ƒÑ´	["º'Îƒ\B%BbúRX_	¤W¿àNÈo± ~?=pi‚ÁkËÓ2àµ‚h*<¾‹ŠtøÆzÅkÑX„EÏû¹Z:cÂ¹RKdœ¯ú#Û¢Ğ”•«Š¤’ç¼•­V•I‡¾«Ñ<O_ «£×-yÛÇá¡ÿSm×Lh²q–Ú……şµZg'ãé¶ëÇ\NG®„6ÿ'}Ü•Cü£=÷¬<5PIä>ÕÔ[8òêšB]>*¦®:ğ¨¡kÏéô‘:=À	-¹oıæœ"{àÍs|uæ¬dAwÁLÌK¸ZïÈÕĞ¢ÏšØÀüs°ôÁûŒtı“Ö_ÆáÆª§´7÷|ş  ÿÿ PK     ! ‘·ó   N   _rels/.rels ¢(                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  Œ’ÛJA†ïßaÈ}7Û
+"ÒÙŞH¡w"ë„™ìwÌ¤Ú¾½£ ºPÛ^æôçËOÖ›ƒ›Ô;§<¯aYÕ Ø›`Gßkxm·‹PYÈ[š‚gGÎ°inoÖ/<‘”¡<Œ1«¢â³†A$>"f3°£\…È¾TºI	S‘ÌõŒ«º¾ÇôWš™¦ÚYigï@µÇX6_Ö]7~
+fïØË‰ÈaoÙ.b*lIÆrj)õ,l0Ï%‘b¬
+6ài¢ÕõDÿ_‹…,	¡	‰Ïó|uœZ^tÙ¢yÇ¯;!Y,}{ûCƒ³/h>  ÿÿ PK     !  Ù  9   word/_rels/document.xml.rels ¢(                                                                                                                                                                                                                                                                  ¬“ËNÃ0E÷Hüƒ5{â¤@A¨N7©[à&“‡H<‘=<ò÷X‘R¨ÂÆKs-ß{<cïö_]+>Ğº†Œ‚$ŠA É©hL¥à5{ººáX›B·dPÁ€öéåÅî[Íş«›Ş	ïbœ‚š¹Òå5vÚEÔ£ñ;%ÙN³/m%{¿é
+å&·Ò.= =ñ‡B=× ²¡÷Éÿ{SY69>RşŞ¡á3ò/Èì/ç¼­¶²‚…yZçAîB‚°oş Œ¥×da’ÁıéÄ¤¬!$AxhıƒšGáÆz-~2¾$Ã™>¶‹IÌÒÄmH4…!^vaRÖnB"”Dü‹a–&yòáÓo   ÿÿ PK     ! 3÷»:   ‰    word/document.xmlì]énãH’ş¿À¾CBÀ.º1–K<tyÛšUÉGÕ »Ú(kºZJ[œ¢H¤ìVcÌkÌëÍ“lD&)3)R”eZ­¨™¶-’Ê‹q|ñÃŸŸ:ì‘ûí¹ç5í´QcÜycÛ}8¯ıuxUïÔXZîØr<—Ÿ×<¨ı¹÷ŸÿñÃÓÙØÍ§Ü4ágpw†³³‚Ñ„O­àÔ›qnŞ{şÔ
+á£ÿğajùßæ³úÈ›Î¬Ğ¾³;\|ĞV-jÆ;¯Í}÷,j¢>µG¾x÷!~åÌ»¿·G<úÃß¤_ùÍ‹hÈ¢Ç>w`LìY·6İ¶5˜â$näqİ$§NüÜÓl“ŞÆ¾õïcêÈa?yşxæ{#põBŞ\¶¨5Öõ- 6±üÆ&CPûŒG2µlwÙRGêı/_Ş)¼¼²ïØÔóD`-z@KwŞx¿gìéhqüõ¼Öh´µÖ „]ºà÷ÖÜ	ñviæe|ç/5›z_ÓDc³ÛúÇ¾ùh9çµP)÷kz?|€.ä]ñHØûŒwf>Ç;¡¸/nøq§ØôÀĞM½%š{¡ 4Í?ÿtÓ…Á´X^Åƒ‹Ì`(aw+ÓÒm­Ûÿ51-İl›}St´'vÀ¬e'ì‰³1äp×˜Ş”³›E8ñ\Dñà[Se°vÉ©\èæG­M%H?‰Cì|Ì¬¼OX˜€û¼Öc¡ÇRCwŞı¥í‡‹<Ì¸ãÜ†–âRÃÔÓàè÷óGf¹–³Hu§<İl™­~3šÇé··Ò±Ù¥;–ãRZJ®Š Œ©¿xâ¹ô®¹ûÑr¿¥¦V0Ş•Û¸[Ïß»·~Ê†M¤2‡ˆd}ôF–›¿òìÊ}kiót·+sMUn_½ğë—~j`Ù­m½t¶{ï!çOÅÈmw6KÿV´‘»9´Œ/>8a Ğ™7qø€ÍA²Û0yî zA8†.Şö¤ZWÓ¸4/±Ø~²Ã	»êßû‚öÅ[´ÂSåû™ÒºÑi_®j±MHëDûRZç,ùgW¬1 ¨®ˆ¿.‘‡aİ­qš‚”9(Œwï{+Â}Èv¼‘å¤›Ïf‰¤T–\¾5® ½S–\¦02Vdlû|:†3>˜	œ¦G¢¼©½}iDšuB€ißq :˜0¢L”Óİ¿±˜8¬$ÇQÎJŠ)ll…–ä.	WŒºÂ^/Ï]ÃD€yŒSè‹1;[Vh~|n4ç-YNà¡VÏGi\¡¼p…5Ç©™*O&_IN§€®‚Ğó¹Äs÷sˆÂg¨oĞt…Yw8y)¬Cß ¸"9VÖa½îÔãjA¨×êÎD[93ÜtzBÉ¢~’úU åË™bZëë—ºV‹9!!¦£;(™¤˜î=æÏ¥P†%Cb pMÔ'®2X,S…œeöŞ9BØİ9Ò€Ï·áÂá0asXm	6áú¯píé¼Öm´ Ëãß­åŸ¡ñHİ0³ŸøÑó¾Å-7Ì~¿ŠK¢÷kßãˆà÷Às}.Ÿ	òL-İØÓ`Ô(ë9L^ÓÉŸÑÜGë¦ˆãÉóNíâkV¿IãH}\Ø|Ñ%JlÕÉ~l9e?!¹È«ËY+]á·ÅƒOgÉ¯Á {SŞ|†üÊe°M{xâöä§sw<w¬:[Å®›võ[Âˆ4Øß´³fç76“–c$¯S#ì’½4/dòMÇ(Ä¼~:[0öeğ÷FÃ0µÖéÃj/IşT%™@¾äˆ!×‘Øz© L/uh˜²xÜi1Ã[óĞ[rüÖüˆgŞß„Ÿ7f]ly9ØH:í‰uŸÎ‚?bi§u¢ùnÃÌùÁ[É¦áÿ~ÿgI{'Ûc±u$¿vX¯±c·î4{-˜+)™°9ÆØz,{Y€^ıÆ÷”¹J1B(qé’T•ĞWeñs«R&ºS¬³ò	Gó-–ßêµA¿?è¯‡ıëápØïÃÿá_ô'üº¾†ëğ¹ß¿Æ{ğÿ¯úVŞïêd³‰…„/X?"±ğ‹å‹X !0 ö—b„ ('†Cü4¡Ÿú ®…`¢a8<’å!¹°´“r §–BeYLëµú.êC¶Q×‘ıô~ÕWT6p§`ŞåàkÁÎpXY({ü	Ü^ñ.©wBıÑV¯¹?6¾væÄÆà
+{ g…6øÌ	ªÕr€ĞyYğ1\…?%£2í}­,ßûs¤µqsol¬Ğ`x™'s=¨ßr_éôı~x^hs”Â2GÛ/¢0Z^¨¸‡â@‚ù#Y
+…B¡µ7¡Pï®B‡‚á³°0¬A‘£kMhvĞõ¨È‘“ø>	˜.µı 9¹O  zĞÛ{câ—00È¢Ø%®øÉS®š}¸8"Í.Ä@$„h A Ä¨àQ ! …!~òË'üò#’?.Ô0°wĞ Å€ÀÀúR€Á/E‚ ‘ 
+)1À->|^Ùïw•ûbÿîŞÄCıGN~=1×“Š½yÀŸ ÊQ›ãŸş##_à#*y¼ÿàÚõ€6ÙüGà_kìUR`¾—ƒşÊ¯‡{ë ĞÛ@¸óÁÓ'@¿¼.Üp|à@™¡¼RîÉ#œï5R-è0í˜bõ>;êÑŒ÷Kù°/£o@H4 |üÂÖ¿ âÈÀûhà† \"áÇÆÌû‹Ø«÷ı…pÃ{fågo¢{Pô¸‘‡ª?É½}ıåg4àáŸ²xïwu²)—Ü{	÷¶Çøºk‡6ï¤6Á¼È¸ÂJ—^{Äíø@ºTÕ"Œ^<‹pØ˜”±Ì¤¢í1¾îf¢ç#VÆ=##‹ß_#xÆw„Ğˆ¢Kgj:gDÒö`GşôèXrØC”,äÀÅø'|Àÿ	ÕŒ?……M"nÁìp‰Ô1©ãHï1$n8Qƒ[WƒC;ªAKTP¼Zs#{#?#£â&PM»bñ®ØşbâêƒT(Êñr12&ú ‘7—ü,ÍbdY±±-ØWØÆÈÌâ&)cRÆ‘2>¦¶Ÿxx$”‡VPuÃyr58îo£. î`[%ºÏàŸz™q$KDşïÂø5ml
+è÷r"_úz ııîüà‰6Áò5ä€øò"ÌEÃ@È
+”hú'W\ìŠÓ÷W¿^ÉTyôş3O ˜WĞ¿`häbó°†ë àg€/O6|dÃëÇÂö)•Æø=ëwpî¡Z^ü¨Âá^Äÿ@à9ˆ¼w0ä$I†X2ì/~mÈ?•
+xÉ°qÎÉäbö7¡æ£"S#ë"l—z^œf»r‚É¸Ïæf˜Y‰¤ñ×+røÊZ3ñQãDüøRbqº­¶i\Õ0’g¥a"ğÕ:C5+hÂ¸Ãúöàã¥h//)‹²¹R~Òú:)j<7Quz½ÂÒ;Wš1h-Kï¤:^’×J»/Š;yù*§Ç!bµ²}*˜İ=ıxL*éag·¥‰ª¦¬-EgŠ7aù™ExR•–¥xşıÏ½r€P,àqu’k†ÍÊ­N"çzÎŸkUi0“ ËÇ=p‘ÔX©ËÌ<ğPÖ:X÷&.ú¦Ù•5½rú‚¶C;m,t’¬–ÌGÈw¾vÍnãª@È~Y—nè{ŒÜ»‡J-X+nuQW¤ÈZNKvùš4ÇH¦J[²–“¬˜W.ysgUFÊÊe~¨õ¢…ˆYXÉ5]”IĞ;ƒFãª/…u	õ6èW©_pÑôÕšu‰ÅÉ_R¿@6ˆ\HÒŸL§¡Çu"–Ñ2¯®h°EŸåÕ8Ø¢ó•ª-ı·TÕƒú³€R«°ÿ‹Ê#,P„•Äea˜©$ ‰zGd.‰÷*Dvoø^J¨³İ˜+_Tš@a³8C»z1±şšrGfh&3•+ı+Ï…"iOg£ ´ä*Nm×ó?õİÀ–•ÒeøQfÓRÏıG|[nÇ¹Ø¤äÃo?×¨ĞHM¼ı ³¡E¥Ş~ì•XàMK7ÈåJÁõâÑ†Ãİ‡prÆšf†®£9^>D ªì$Q‹¥†U¢¶wı§ÁÓÿEëùz‰ë	E–Ñ(;cÚi›Ö´”5ÍVQĞ²*óåB/V‚ƒ›à€´–ê›•lQ5¿c%Gp`	š$jKµh(Á„NÁÑh)4Jp@µeÖ]Á2=ì”Sy‰”±ØÅÎ÷¢¨[*ã	ºRTÆZ‹”qùÊ˜h´œ5%e¼we\B¾–])ãRê§‘2&e¼äR#o‰„#Ë˜”q›ËdRİó–å;t”—tiGÊX1Ò2âE¤`nÄrÃª‰^tåµË1Ú7ñ’Ø(T_bß\#GùÀ²ÍÉ6ÉE†•ˆòÊöƒ°’·í@Ó†_¿ôË©JÊø%Ê˜‚ØÊt‘mn’£¼¤õL±Ñ®u9kš­ È6ß¡m^BÆ)cÅH;HÛ|³ºÇ^(ˆ­QÙæŞÀ6'-‡F	ì}ß¼„\®¢˜öÍÊxh‘«¾QyèˆÛÀ:âVØ;(!{óà@9å•H¿@7Éî)GĞEÊ¸M®ú’Ö“\õ;:ôD®úºêµ2¦ïH¾¯ş–«eÜ(êk«ŒXÊ7Cyí´¢[¯¨Ì?Caõo`œÓÖ}9‹Œó½çZ	µDÎúÏ'íUÎ	íå™÷.­h9+JùèÊËáš:fGÎzÂï$®^«NBºzßP”CA<Ù’[Û’KmLõåH:Ú:/1£:ic:ô“lIa½DO$Ší,	F¶'„iÊwí¸/YeÒÆ¯×Æ´wNÚøËŒ$sµÓ™óRhÔ±‚ğ+wÇÜçã¨«öÑçÖ7g“S!vÕw¹«^¡Tq7ÕIMV³¬½Vz´åm-;Wd5kãVŠN¡š*;«óAÚx—Ú¸:¹â(âÜOTn¬7×Æd5—¤=d¦6:şfd5—C£Ù~UÒÆ»ÔÆJÕ6œ¨İd¿¹6¦år$í(Ór\†–Ê×ŞÔ”¨òrurµÕ‹€v”ãjÛoJĞËø.²ËÔÆZ‡<Õ%­gâ46ÙÆå¬)ÙÆû?}E©ÒFeyÏê?ñPaöú3:}U¬•Ö¹¡(i=x€h´œ5%<°<P\iŠª-ğ“ï#¢¾uWfÊ 	¼íU¬¥H6òÖ“·¾±çf…½õzu²µÕ¯…¢n0iã×kcÚ;/USÍÑ²|q	ëœr¥•C£dïİ:×)WZyŞúO¶º¹Oxàõx€¬órd-Yçd“uNÖ¹/£ŸsNØ3½:¹Ò^b™ïÉ[ïXÊ 	¼P4_©x`“Bgf·qÕÔ0Q`¿^ğ{kî„‰3Ñ›Ä%Úcg)§’IZ²˜†£àI_şºsp¤³x¤8ƒNWë·Œ¬éªwÄt£µYK”Vò-¿1”ètŠüü#{´œóšŞ¨A'0!ÀQ’Dâ—r¤ù•ïM™uç=ræÍÃÙ<<aOœ,—œ³pb…ğ²¯0şÓu¦«<_çmhù!†"úŞ&ÙšA³™ÍGœÙ.-=$?~Qy$e‹å-¦Nû2ø{£a˜Zëôáî[jÆbB‘†,l)Û{±2b±Pëßfî¼·~ºÒb¼H¬ƒ~0MòhÀš¹çŒø×üeÆ.®4cĞj¾ªË	¼·FLÖü‘û‹tg3ßóî/}$Ÿp1ãçµ`Æ'IÊ[/ª ÿÿó_ªéŸÇ=—î8â­;Ìy‹ÖÔv=fì1ƒÉìûÅ‰à Ï¼û,~zëuIñWvwo·&B”Èe˜q.\H3/õf‰E‹Ï+´Ab^|éKQtÂ,w,ïÒ}o¶À–m4Ãòm£îŞlAS²(ÏF)&ïZPï$Õ'ÊÈXŸ­•)ÅÉêË¼ÏR»VøÀ!å`ÃƒHWÚî½çO
+<W(L!½¤e7EİtïÁĞËb©”ŠZĞ…Š¥gıàN\z€$kœB÷©WŸÔU/?[¡Å¤z¹òüæ¡­TÄ(GÕT­”éu)YB}Ÿø*ÙÈsC fgÊ$b>%Ú…_’ÉàÛp_Œ0¦Õ–º	®ÿ
+×@û#–Óš‡Şòö÷-şVÃìÇØ4Ùòµo‘¯à÷Àsd{]İÔ±<?.y&iàhnE2•Äª#€‡o¢)Œ¢‘Š–—ƒÿnÅİD*à\•DI‹F½#dT¢ïHF…Ö] aİÅ‹àğû×jæçµ¶ÑŒV*çÍl‹%ƒyä<¡ë‚6ô®YĞ†Ñj´ašZAMÍ,h£Ùé´ÑjimÀ‚´Ñit
+Úèt¤‰”¿¦İf³ ­¡w¢Á3E­híVQ+ºÙ-jÅĞ¢VŒ. sañäÑRZQ+M³^[ZÁj­nÅÂ²‘¬Ö1ŠhVëÂ+(˜t·SDµÀ^Ed«kFİ"—ŒE×ÛE”«Í¥u‹”¶·3kÄ/.cuô|çKúÎøsÈ¨j?LÂÏ€X#¡}-BJËŒV0²íóÚÀ›û6÷Ùş„âkÒİÊÕÈ´äƒ)[ëÈ×üQœ¸7ÛHâc¬{,m]ûwi¸Í?½É/¦u$Ÿúï°«cV&Ö„Lº`Q<Yş8–4‘.NC4©)ëAĞ$kkMbM¯ĞAÜ5!h‚hêty4Ù&Üà¦SU„Ø«ÿb9'¬Ù°‰†Åñœ(¢“ü&*ô ¿I¦†ÕÈo’¹.ä7‰½)ä7ô‘íñyŞ¢<mN¶©TwÓà¤>ôgŠ»¡¯¢wÂÚİn„N:M({@è„Ğ	îøåì”:ÉÔÂ„N²ıE„N„2Uu…ÑÉ6õù\;ój¢“N«¡“.–!tBè„Ğ‰Bs’=(æ„bNb°.w¦ 2Šyo1'ÛÔ+<tREdR¿åş	ÓZºoí´ÚàÀ"|¢è&ÚÛ¡½Â'„ODXß^Ã5ŸO2eû (&öéìÕhà6ÎÙÛÙ¦‚ãÁàÈíV£ >i1>iëP¸‹ğ	áòŸ(4@ø„ğ	á“³çCÍÅQ¼ïïÌÎ65-ŸT›Ô‡ôŸ´Í8øDë4èàÄĞ+º‰ü'êzPôIìĞVÈ„¢Or )N¿Ú´'ÿÉnçûO¶©òIøä5gŠ\'Ì0zä?1ŒáÂ'ëSa>!|+ ÒQÎÊyÄìğŞãO¶©:z0ø¤ş#¯ht¬a´ã´'†©ÓéÂ'„OÒ4@û;9ÎŠ¥øØcÁ'Ú6eP TrƒGÈ"*‰(f¼X€¢xîiƒ‡6x @¡ ”#@Ñ(kìÑ80Õ?;ü„™÷;(¦Ñ¡Æië™ 
+(P ;@İ¸‘â ORÕûşÃF£?¬LyPIìA1MöÙÈƒB:Â£Ğ (P T;ìµSÑ3Æ¦iÆ1²¦Ù¥3ÆäA¡”4@!€B åØJµSÈŞLxE=(ÍF|ÈØl¶(H6­œh‹‡¶x @!€rì ¥ÒYd«{Š§ÙêÄ§xšmƒ 
+ò ¤i€ 
+(ÇPªFv8ñ«éAi5qšûV“Šb©s%ş€<(êzP”ø\¥B&”¦-ÃPš6JÓö.Šj•Î#[,‚j”îsJ—bP	 4Èƒ’©äAÉA”e‡'/+–GÖ±‚ğ+wÇÜçãëô¹õMø¡Ş[ARÌîÄäŸxxÂºÍeŠÙn³§Àé|b4“o…|+]ºĞæÏ±oşT:Çlı*P÷p† ¥eFRº-òè@!€B €B … Ê‘Ô©ùÃÌrí,6ıÁeHTÒYJáF›?´ù³BP @9v€B9fw½ÅóÉ†*‚ZÃhÇEk˜ÕLÇ&Ğ&mòD!ˆBåØ!J¥³ÌVÑRï;@¨$Øœ(šIñi›‡ÎøiZÙj‰ÎøĞX*uŒ5~­}”:ÆPZ,Q7ƒø=şz^k4ıv£¡ÕâKüŞš;áê›Ä%ÑÈ¿€Ûƒè74±z ÒS¬¬G¿ş	
+c<Ñ5Ú {‘ìE²³3Õß‡0ŒrÓ—bÔ¿òÜpçŠÄ7û}êœ3kÄÏk3ŸÜäµŞÏşƒåÚÁô¬¢ûÓ_øÈ
+½*&OÈ~}Ö”ûöÈrç/:%J0eM°œijP§©™p©Ùé´Ñjim ®+h£Óè´ÑéèmÍ˜	ª)/D’¡¼eç… aLÂ8rÚ0&a+@¼ÛiñxÆ$ŒI¯s72&dÌ"<é»}^xsßæ~|u¨—ÄeğG¬ÚµÜjş ˜ò_á¬‹…ñA;ğúópâùAUıwŸæE‘¾5=¸c1'?;˜qÇYˆ™ùwéû@hábXœÕòîû‡O«zpi0±ĞsO¾œ~|Ù«:ä—Á,w\QñµÀ–ÃÉ×J¾Ş©BC„Î	:'tŠ¤íuÚ^Om¯íĞágl8álj‡Şhâ¹cß¶öÀ]oÊæİ³nNæSËeÏûöäùS8¤è5iü(àåÁÁâ¾;Z8^zSk£	TWôUŒçŞ˜»–SÅÊœ9¡Õ¿¥rP½í¢TÚıÃ¾ÛHĞœ¦øÂ§·5~?j¢ª¸[>â¾ËİWñ]ô¾WÈŸs2ÌÉ0'ÃœséÅŞK¬y%¶Íş{…`±ÏnxÊşrZQ+ïÆò­ ¢óü‡en÷N™¡³ïôïáŒ±Ù¬kÍ|h4tRé‘
+££lt”²å„¹Pi&¬ŠU:ÙWd_‘}EöÙWd_Eç™sÎSX"„úí4÷Ö{‡a‰z„$Nâ9Hæ ™ƒdR&Ìƒ–îEQV¶ÏG!»ßMí °=WqŠ’íJ¶+Ù®d»’íJ¶kl»ö–Û€Bi„!³ï4½~{yS‡­(ã{vÁg–N!>Cuá!ä9r-ÁnG6wGüDÄöşÕµ9$ZøÔOÜ¹ÃíE¸©7ì¾1‚PßOöÃäÉZœ°_¹ïÛwnÿb y•m1£a@‰¨ş<}Ë±ÕHR\¤¸Hq‘â"Åu Š‹„1	cÆ$ŒI€0>è“´F;`g¯ÎAƒ»z”|€vÀ€—VK.PÆÌe¡Ô`9›d”4·ì¤¹‚@h¬ ½8ÅNPìÅNä¨
+¥ßC(ı¡h¬0½Uÿy0Ä0vÀòª¢8)(VFåÌ~Öâ Fª’aÃiF·UP=…)®Ã	ú£0Ú£0Ú£0Ú‹ãè²öeï€‘ş ıAúƒôéÒ±ş(oÿâÆOT¯Çe¿R©û³</ÕMÉ!MkèEş­İ*pıiºÙ-jÅĞ¢VÈ7”½ÁßíU>¦\ü”‹?•‹?k§£Ñg}´n·û=ûb…ph’ó+çF«V#ùş “øúı°f[ìŞóÙGÛùhâz÷°€\pòFÃ[:a_>:a9TOø   ÿÿ¤VQ“š0ş+ÚçAœÓN¥Owãœíô9B”t0IĞ^Ÿú7ú÷úKn@AĞ³×{ ³Ën¾ïÛÍæD„{èi,Óõ=ômå?ÜÆrª\?3ı”añ*lrLãÁG‚F/Ã4gşÈ4ûFeš“ÎÙö,•ià™33t’%ä„<ÅKü‚{œLË4îÊp²êıŞÖK®¶p½¾ïØÿG£‘èç.‹‡dbdœÂ÷Ä˜Œï^³=A`z=t (Ä)„ ²'ü5ôÔœ±Í‚s %_3È&2’$+‰¹Tü´ÊJpùòÜ”şRè"êİ@QFIHşşş#PÂB,)KM‘Œ	bœniŠXg¹Dš;ô œ†B–'‘&ó4Ô¶7…ßFEHÓèÄã,µRöØ„Cgä?úº¯.”¦v^£k%ÿ´aü€yºAÍ¡Â‚|î!èÏ·íáüU
+EäaŒ°h¥S½!§–	–ó²š8—1ãïÊ»åx×ê±îVé¡ÖÖuEëL¦UïœQoõ¸ÚşTÜKéºñ Àú³‡ˆïšØÔhŸ~ÏZ»OÃS<úä5ÆW9‘*¬µñUz>r:Ş¨6tì$7·FÛ;N±b´İº±†µü\kÔ˜«<`©À‹Ò‰ñÇl‡U^‚…ôÅ`£;"Ğ39 ğ¥Êû©h|Šc¬$d	Œrd›ú¯˜N§AŞ·*ËLĞÃ½°©;¦êÕ»U^/Íó¨@léiæ!ÁÈ²Ìa×.îÈtİ¡>Ê×æÄz¶GQKëÑvƒ kãòóv-×Àø&éœ¾;s—- ¡\ª§h3n~u¡úÎÌq´Ùv¥îéÃÄè÷=ÓQècøí¸¶[Ô:Û>a•R²ìƒAQ?º!Sµ\3)Ùî´NÈ¦æ	\ä ¾J¿aLÖ–Û\ê¥şá0†.T­UŞ×*D3‹Xø…Ó<	MÉ’ÊPÚĞL…€q­åšE¯ú„ä;’Êé   ÿÿ PK     ! …ğm¢  k     word/footnotes.xmlÄSË®Ú0İ_©ÿyU÷FT‰²F´ı ×qÀªí±l‡”¿ï8Æi{AuÓ‘çq3ÃjóS«â,œ—`j2›–¤†C#Í±&ß¾î&¯¤ğ™†)0¢&áÉfıáeÕW-@0„/ÃøêŒéS¶¢Ôó“ĞÌOÁ
+ƒÉœfŸîH5s?:;á -ò»T2\è¼,?’+Ô¤s¦ºBL´ä<´!¶TĞ¶’‹ë'w¸gxSçx§…	#uB¡0ş$­Ïhú_ÑĞâ)ƒœ™8k•ëzû[ãXÑ*ÉîÁ5ÖŞct›’#â¬|Ä}`„;‘ğ7gV¢™4#L<wû—7ÅåÑÄM#Ôo#8‹õÇTôU¸XDòÂ2Ç8‚!ÙÔd2
+->ñZ›CMÊòõÓâm¶‹Ch+ZÖ©p›ÙÇĞb¹ü<Ÿ'½‹¤Ş2ÄvÖg„×ßWJF'óåø8t
+¬@èzEûÊ¦ö„‘u¦ÆbÁğ›ÿ wıq0Ašn¸¿/#{-“ÊìëÖĞáX½+ù‘mœD_ÿ  ÿÿ PK     ! ºŸˆÅ£  e     word/endnotes.xmlÄTËNë0İ#ñ‘÷­ÓR!ˆš"¤Âîø:µ°=–í4ôïÇqĞ½ ªbÃ&Ñ¼Î™33Éúî]«â œ—`j²˜—¤†C#ÍkMş¼<ÎnHá3S`DMÂ“»ÍåÅº¯„iá„0¾:`t‚­(õ|/4ós°Â`°§Y@Ó½RÍÜ[gg´eAş•J†#]–å5a &3Õ1Ó’;ğĞ†XRAÛJ.ÆW®pçğ¦Ê-ğNFê„ÂÀø½´>£éŸ¢¡Ä}9œqĞ*çõö¶Æ±÷¡Uj»×X\xŞm
+Nˆ‹ò÷8À1UœÓÂ¿œ¹Í¤™`âuü·ÿiys\MÜ4B}
+ÁYl>o©è«p´ä…ep]²©Él1äY4ñV›]MÊòæşêvñ3×V´¬Sákä)º®V«‡å2<¹Èé-ã8@,gmxExû}¥d²\MÆ®Sè`] B7kÚW6•'ŒÜg
+¡/&ÏñóøN¤é†ã{ÎYi™zÌª¾ÊÙı†Ğo[>!Çÿ›   ÿÿ PK     ! 0İC)¨  ¤     word/theme/theme1.xmlìYOoÛ6¿Øw toc'vuŠØ±›-MÄn‡i‰–ØP¢@ÒI}Úã€Ãºa‡Øm‡a[Ø¥û4Ù:lĞ¯°GR’ÅX^’6ØŠ­>$ùãûÿ©«×îÇ!)OÚ^ırÍC$ñy@“°íİö/­yH*œ˜ñ„´½)‘Şµ÷ß»Š×UDb‚`}"×qÛ‹”J×—–¤ÃX^æ)I`nÌEŒ¼Šp)øèÆli¹V[]Š1M<”àÈŞ©OĞP“ô6râ=¯‰’zÀgb Ig…ÁuSÙebÖö€OÀ†ä¾òÃRÁDÛ«™Ÿ·´qu	¯g‹˜Z°¶´®o~ÙºlAp°lxŠpT0­÷­+[}`j×ëõº½zAÏ °ïƒ¦V–2ÍF­ŞÉi–@öqv·Ö¬5\|‰şÊœÌ­N§Óle²X¢dsøµÚjcsÙÁÅ7çğÎf·»êàÈâWçğı+­Õ†‹7 ˆÑä`­ÚïgÔÈ˜³íJøÀ×j|†‚h(¢K³óD-Šµßã¢ dXÑ©iJÆØ‡(îâx$(Öğ:Á¥;äË¹!ÍI_ĞTµ½S1£÷êù÷¯?EÇ?øéøáÃã?ZBÎªmœ„åU/¿ıìÏÇ£?~óòÑÕxYÆÿúÃ'¿üüy5Òg&Î‹/ŸüöìÉ‹¯>ıı»GğMGeøÆD¢›äíó3Vq%'#q¾ÃÓòŠÍ$”8ÁšKıŠôÍ)f™w9:Äµàå£
+x}rÏx‰‰¢œw¢ØîrÎ:\TZaGó*™y8IÂjæbRÆíc|XÅ»‹Ç¿½I
+u3KGñnD1÷NIBÒsü€
+íîRêØu—ú‚K>Vè.EL+M2¤#'šf‹¶i~™Véşvl³{u8«Òz‹ºHÈ
+Ì*„æ˜ñ:(W‘â˜•~«¨JÈÁTøe\O*ğtHG½€HYµæ– }KNßÁP±*İ¾Ë¦±‹ŠTÑ¼9/#·øA7ÂqZ…Ğ$*c?¢íqUßån†èwğNºû%»O¯·ièˆ4=3¾¼N¸¿ƒ)cbJu§VÇ4ù»ÂÍ(TnËáâ
+7”Ê_?®ûm-Ù›°{UåÌö‰B½w²<w¹èÛ_·ğ$Ù#ó[Ô»âü®8{ÿùâ¼(Ÿ/¾$Ïª0hİ‹ØFÛ´İñÂ®{L¨)#7¤i¼%ì=Aõ:sâ$Å),àQg20pp¡Àf\}DU4ˆp
+M{İÓDB™‘%J¹„Ã¢®¤­ñĞø+{ÔlêCˆ­«]Øá=œŸ5
+2FªĞhsF+šÀY™­\Éˆ‚n¯Ã¬®…:3·ºÍE‡[¡²6±9”ƒÉÕ`°°&45Z!°ò*œù5k8ì`Fmwë£Ü-Æé"á€d>ÒzÏû¨nœ”ÇÊœ"ZúàxŠÕJÜZšìp;‹“ÊìØåŞ{/å<óP;™,)''KĞQÛk5—›òqÚöÆpN†Ç8¯KİGbÂe“¯„ûS“ÙdùÌ›­\17	êpõaí>§°SR!Õ–‘3•… K4'+ÿrÌzQ
+TT£³I±²Áğ¯Ivt]KÆcâ«²³K#Úvö5+¥|¢ˆDÁ±‰ØÇà~ª O@%\w˜Š _ànN[ÛL¹Å9Kºò˜ÁÙqÌÒgåV§hÉn
+R!ƒy+‰ºUÊn”;¿*&å/H•rÿÏTÑû	Ü>¬Ú>\Œt¦´=.TÄ¡
+¥õûS; Zà~¦!¨à‚ÚüäPÿ·9gi˜´†C¤Ú§!ö#	Bö ,™è;…X=Û»,I–2UW¦Vì9$l¨kàªŞÛ=A¨›j’•ƒ;î{–A£P79å|s*Y±÷Úø§;›Ì ”[‡MC“Û¿±hf»ª]o–ç{oY=1k³yV ³ÒVĞÊÒş5E8çVk+ÖœÆËÍ\8ğâ¼Æ0X4D)Ü!!ıö?*|f¿vèuÈ÷¡¶"øx¡‰AØ@T_²ÒÒ q²ƒ6˜4)kÚ¬uÒVË7ëît¾'Œ­%;‹¿Ïiì¢9sÙ9¹x‘ÆÎ,ìØÚ-45xödŠÂĞ8?ÈÇ˜Ïdå/Y|t½ß&LILğJ`è¡& ù-G³tã/   ÿÿ PK     ! Š«ïm  \     word/settings.xmlœWÛ£8}_iÿ!âyÓÁÌE{Q÷ìj3ó8	jÀÈv’îùú-^:=Ñhbª\§ªo'÷^ÚfqaBÖ¼[;èÎu¬+yUwÇµóùS±Œœ…T´«hÃ;¶v^™t><üúËı5‘L)˜& ÑÉ„¯³èYXKå²­KÁ%?¨eÉÛ„uÉ¦gŠkç¤TŸ¬VSĞïYh.ZªäÇÕ¹åå¹eZy®KV‚5TAÁòT÷Ò µ?‹©Näò½&.mcæ]‘û½™S»W.ªÿ#~¤<Ğ^2)Ù¶ÛmiİÙüÎÈçc½T¼¾y€eûÂy»¸&
+H{&UQ+¾{&J ö AÎJO„Bøa§¨bà–=kšaS”£PÎ59
+Ú¶q´1;Ğs£>ÑıNñŞ¤	=w„,OTĞR1±ëi	hï”à™Wñ\e¼í0Fœ*±;ÑmG`ùpÏ©S&¹¸$ìÊf•îCöuÕÒ—µ¢pÈ¹º&_C\“çªãŠı#t§æê¨«µ³œxg6xÆ<Æ²®š¦w8·Vsg¤§J×r–¬Èé+?+`ÊŸ]pH+ àšèÁ¿ĞáÍu
+1&#eÚ;{\äÄ·{BgVOYaõä~Yó@î&°Å|»6”z¹7‘}[5ÚºYš[ÑrŒ}«ÇóC?µvêmpTXûñ²Å±-öıÜól‘MfåÍœZÑüØ-ˆ5&¼Y9ˆOR+£	ÓMj«-ˆ=7°Æ„‹ÀÊAˆHF¬k‘  ¡-OºQdÍ›é¸ß®i£”`+ZŠcd­-Úb/°²“ĞÇÖ˜8Å8ØÚòÄ[”¦Ö
+â"ÜkÕ)‚u°æI±WäVvÒ(Ì6Ö=šæ¬û`““ˆXól
+ŸØOp†=ß#¶N³ØËí¼ei×…-f‹0.¬µm=ƒ¬ûzë…9¶{Rß­yrŒ<lÍ%-‡½3^èãí7ßoyÅY×´@8#Ö=Z„Eîo¢ádÁÍ«·/Ü·m¢‚¾íÇQÖ¢ĞŒ¶{QÓÅ“Öp_·É^<oêÎø÷´{ëÙ÷Æ¹\ÙÒ¦)àa ªZöğÚãæ‰ŠãŒ6lĞ6V+<ˆ•Z?åLü.ø¹s\íÿì*0›)È÷'¼ºSukìò¼ß™¨äÃ×¹«ş¾¸šI¹&
+Ó¬<ÒîhV†uËô³–	ŒJ•Êš®/§eöQGÃ£ÖˆŠì‰ö=˜·?¢µÓÔÇ“B:LÁWEÅóğ±?z“Ï|ğ¥}Ã-u³0{è	ãfMƒÙ†Ï6ßØüÙ[0Ûˆ±m;½‚dIô‚ÌµıÀ›†_Yõ‡1®¯L#	ƒùYa3É fP
+7"HK$­‚úë¢¢
+Ö`8‘«›àAe¼«åšT¬¬a_î^Ûı,ĞîÆÂ›ZªëAË). åAKş6ì‹ùoÁÃ   ÿÿ PK     ! à2”È§  q     word/webSettings.xmlìUÉnÂ0½Wê?D¾·YÍ" N=uù “bÉöD¶!…¯ï„Ğ
+•ˆ*•z²37¿73ŒŞ¤pÖL*#ş½G¦r(¸ZfäõevÇXª
+*@±Œl˜!£áíÍ Nk6fÖ¢§q0Š2©ÎHim•º®ÉK&©¹‡Š)<[€–Ôâ§^º°XğœM!_I¦¬xŞƒ«™ 30%¯ÙG«/‰Vƒ.*93‘¢')Wdˆ9|mö«S§¼ÈHû~â¡¿;ŸC±™ò5­©Àû·ñ–T?²…ı°zŸÖ'¾,Ï˜_ :õƒµ ¿Ù1Ÿq¡›Ø/ŒBf	:šmFÜT4G®wû ¯te¡MCdÖ9?Ê¨VŞ¼Ôİ‰°¿t#Ç¤ä¢8Ö$Iúı(è{áN“öO4¿*ûA/Â0ò®E~/j÷lí7]+>«?ü¡ú’x2éÖwôqtÇ)Ñ~I/øAG}œPñµôØ³³rtéì:ı»£¨Ub8h×™ôk3Ğ ²\ò-›k¨Óøš`Ìƒ‡rø  ÿÿ PK     ! öJ  v   docProps/core.xml ¢(                                                                                                                                                                                                                                                                  Œ’MOÃ0†ïHü‡*÷6i7!ˆÚN´“q‹¯‹hÒ(	ëöïI?V:Á£í×_;ÉWGUG°N6º@iBPš7Bêª@¯Ûu|‹"ç™¬n4è­Êë«œÊÏ¶1`½’v”›í½7cÇ÷ ˜K‚B‡â®±ŠùÚ
+Æ?Y8#ä+ğL0ÏpŒÍDD#Rğ	i¾lİÇPƒíN“ÿh=Xåşlè+3¥’şdÂN£İ9[ğ¡8©NNÂ¶m“vÑÛşSü¾yzéW¥înÅ•¹à”[`¾±å¾™ãY¢;^Íœß„;ï$ˆûÓ¨ùï¤²{Ÿ2#9ÇaH¿Ó0	D\Òa§såmñğ¸]£Ğšf1YÆ²M3º¼£„|t.ú;×CBÎşI\Ò”\Ï€²w|ùSÊo   ÿÿ PK     ! jV´	  UE     word/styles.xmlÜ\Í’ÛD¾SÅ;¨të¿µ“µÙlØT%!Ä»Pg¥ñZYc$9ÉæLAñ(.Ü8p£8ğB¼==’,K«ÛRª€Êa£Ÿé¯¿ïNûãOŞ.CçµŒ“@ES·ÿQÏudä)?ˆ®§îåÅã;w]'IEä‹PErêŞÈÄıäÁ‡|üæ~’Ş„2q@@”Ü§î"MW÷o!—"ùH­dÏæ*^Š.ãë#5Ÿ|¤¼õRFéÑ ×Å2)€'‹`•¸™´7ioTì¯båÉ$m—¡‘·Aä> õ|å=’s±ÓD_Æ/âì2»ÂU”&Î›û"ñ‚à—A¤âó“(	\x"E’$(?<Ëîéçıbùa±ÒKÒ’À‡¸G4yË^‹pêùS­ÄÖ½PD×ù=İ9¹,+3uß-îœ>×·®@îÔñÙ‰v„–æ?K¯¶ì‡+Te%<ğˆóTB!$ZhèX&ãüâå:„bª XY,\Vœ¡…@ÏL¢ÀS9ª¼WÒŸ¥ğ`ê"Ü¼|ò"T¤7S÷Ş=	7grœ¾/u^f÷.£EàË/2ºL¤¿¹ÿùcÌ²L¢§ÖQ
+ê'˜aâŸ½õäJgˆ„òs½ Ôb“*´6Ú˜T¼ùuÙ71Ü‰²BW’ƒúïB«×­Ú¢²(—¥ë°½ˆQ{ÇíE`ò¶óÅ¤½ÀŸm#br£”•ô ¦Ê3ÉWöÃğŞ”Õ+jYÔ¸¢–4+j9Ò¸¢–+jĞ¸¢ğÆµø6®¨…sï
+O qU³hˆŞ öE†R¯ßK@ı–T—µç…ˆÅu,VG÷ÖªÚûÈr¶¾Jiª"N–³4VÑu£G ;ëÒ=˜“Ï–«…HØÔ4¸~ĞÒõâ*”Î§qà7B›ä«Ù„“-ìE(<¹P¡/cçB¾5e¬®œ™Ùe4*×2¬OƒëEêÌØrÁÆ§Û=aä?ôÁŞb[LiNŠáØ’—váÏ¤¬—¹k»‘±ásF˜+¨â~tˆêÕÕh… ÅÓ.ø& |‚ş¦¹ğåëSô7­è@ùıMã:P>æÇşø²™æ‘ˆ_9¤òš°k÷T…*¯Ã¼éaÂ®à‚f»ˆù$’˜°+x‹>ÏƒOn”<eÇbÃ£v8
+İvP*´×gXÄPkÀÀjÇµ 6é¾”¯ı»'n3@–.öšå<´x ZiıùZ¥Í{è…ó¨(O"øuI"ÚĞRyT´,ŸL¿cÄ¸]ãc µë€ v­dÉû§è‰töÍ‘Å¦å¢‹aÚ‘™yÂfæˆ×:ê›„ı—¥zí¹Pï›v€ê}“€ÂN¥—}“€ÕYß$`Yº†=FeNåÅî›e b'@°¨ò& uCŞ nÈ› Ô¼›Aº#o›
+N-“7_á|Ô/€ÊäM bsƒa»ìwFyßC)û?Üv@Şv€êäM@aGÇFŞ,|…“	¬‚êXİ7¨ò& uCŞ nÈ› Ôy€Ú“w3HwäMÀbsCÁ©eò& ±é¡ *“7_ápÃNòÆªïäM@a¨NŞvt*„ZlR	Xì U°
+ò&`á+œdÈ°0¹9FuCŞ‹º!oP7äM ê†¼	@íÉ»¤;ò&`±¹¡àÔ2y€ØôP •É› Äæ†äÅøŞÉ›€ÂP¼	(ìèTµà9;@¬‚¼	X˜/­É› „¯
+Ä±¨ò&XÔy€º!oP{òné¼	Xln(8µLŞ 6=@eò& ±¹a'yc¼wò& °T'o
+;:B-È›€ÅP« :V7äM ÂÄlMŞ |å  ¬"N˜º!o‚Eİ7¨=y7ƒtGŞ,67œZ&o›
+ 2y€ØÜ ÏÙÂyQòñÔ¾%	¨çòSdÀ%HTÀÌÀ—r.cf’Í§CZæ2-éA5ñ¡R¯ÚÁî¡%AÈPÁU(<Ò}ƒ§tJƒÃÉI‚‹ÏNs3 S[‡)µ}ò¦‡ÊãB8¤‡@Ïôf#;«üd¹–Bz´+ÂQ´'0$pâGøÀ;8O•úàŸl3@ü?L¼ùù;½Ş¤?>³Ù&”VÇ÷ €cRûğ{5,ãQ‰ÍTF®Jv@~³2ïmÓ„[à,‹–©>¾OÃ~MCã"‘›xÖõ‚±,Ô¤I±â<¾^…fĞşó$Òş†É>üÛ™	©ÿV±ğüT†á3k¿§je5”óÔ<í÷°VD]©4UKûú‰£&»€gËÊ˜Km„İåÑzy%c˜óÚçöÁ·›Ó®&ÂEUæ˜¸TÛõÚJØM‰kšÔÎø£JWfì>Ó#s¨è1sc»ÂF“ãáI–D0‹©ÃìéC¹¹ø»=ıOC€Aø‚İ°-&Ø6ªöP„¡‚©?\Øi”±	æ_åŠœB™3-İŞ["İxÛè%–E6x9*.v^f‚[¬S÷YàÅ*QP!_‰sè„ÌXëQÑÍ4jÿ®1;y·™F5÷š#²•jŞ:
+œiò®ò3:WÇ¾LÑ·ßÿqûÛ/·?{ûÃw·?ıêl"`IÁr¸Äˆ,{d²´ü·øÔ’åÇµ,×S¦Ğ•ùÍ-åÆFgù4s–àĞˆpğ~æ¥¥”›ö¹RÉÔ÷‡FëÒ;HÏ:oñ•{½AŞ•syIuf¹¨ùm*;§p2¸Şäÿşù÷?ú™¹Ç­2wãr»Q–×Rh®à|3+…²J›Âv%nìÁ©rÜüS¨¾ƒúë›™)„ÅQ/ÎKÍ²{°¹ÜBPvÙô¨æsÜc›±ú2ƒ_l&w²5Y`qG»ìŸÎàC >é¦]r6¢á{%à16QÜşèï˜Èñ¨K3”f¢ü[p/³ù†ø,c¶©­-¶°­Î7¸-àÛ,|y§×j³ü‹Ã–CBœÊîÿ/}*ÈK(yğ   ÿÿ PK     ! ~ñ’1h  Q     word/fontTable.xml´•MnÛ0…÷zûFÔmÙˆÄnŒnšEã.º¤eÊ" ’)[Éºì=zƒŞ¦¹G‡¢¤4vH)bôHg>½^^İóÜ9P¥™1ò.0r¨Hä–‰]Œ¾®W"äè’ˆ-É¥ 1z ]Íß¿»¬f©¥và}¡g*FYY3×ÕIF9Ñ² ÖR©8)áQí\™¦,¡e²çT”®ñØU4'%ü·ÎX¡Q­ê­’j[(™P­!YÛxœ0æMvN5„CÖK’³bõBA„ÔÔƒµÉc„}¼Â#¸›+Ä¹#×DH2¢4-»ØÊ)á,hU]1­íBÁÊ$kõQŒlrj—4ÛÁÂ^opŒn<Œ±¿Z!«x1
+A¸^vŠIÙß´Ùt
+|H¬Soñ¦uP NóV§k¿Ï	‰;Æïö–ÉË[ Ófüøóûï_?šRNyxáìµ—İxÄ([ù9#²/e·¢¦à	‘E+£6J‡È¿€È°õh=­§Ú¹¥•óErbYšÆ '¬Í2ªãÖ&ëk(Ã¿î,•,A™Da]«#‚{˜ÆÆéošÏ,QRË´t¾‘Oô\-€„iÓFõ}€E†·Qõc?šüí¼
+–#ÿ5ñ¶ÑRî£Ê¸äÌP™ ‹iÍÁ—p?¸ÜR%şÑ2)»§[«?)çÜÑvĞ›ºcM2ğóh3UM£[¼ılõoÛdŒG‹cSø/µ	º¡m²$™s$Ì °ÌàFâuãô”ÁaÇæÉíPıŸS¦9nôü   ÿÿ PK     ! \Š¯å{  Ë   docProps/app.xml ¢(                                                                                                                                                                                                                                                                  œRËNÃ0¼#ñQîÔ)”ĞV[#T„8ğ¨Ô´=[Î&±plËvı{6„– nø´;kgÆ†ÛV'ïèƒ²f‘GYš ‘¶T¦^¤›âábš&!
+S
+m.Ò†ô–ŸŸÁÊ[‡>*	Q˜°H›İœ± lEÑØĞ¤²¾‘Z_3[UJâ½•ûMd—Y–3üˆhJ,/Ü‰0íçïñ¿¤¥•¾°-s(°uZDä/ì@a£Ğ…j‘OÇ„Ÿ:X‰Ÿ ëØY_>›]ëKX6Â)=~ç„ ¸sN+)"ËŸ•ô6Ø*&¯_$°á XÖ(÷^ÅÏ€[xR¦“r¬¯H›µ®	|L÷ZXK¡qIîy%t@`? ,më„9pRz¬ˆğ-l\aï»x¾ü>w*6k'$©ÉóÉ/Çƒ¬),ÉÂ‘ğ€Gz¯»[)-ScyÜówĞe¸íÿ&_2Z_¡12~ú4ü  ÿÿ PK-      ! ok~  (                   [Content_Types].xmlPK-      ! ‘·ó   N               ·  _rels/.relsPK-      !  Ù  9               Û  word/_rels/document.xml.relsPK-      ! 3÷»:   ‰              1	  word/document.xmlPK-      ! …ğm¢  k               š)  word/footnotes.xmlPK-      ! ºŸˆÅ£  e               l+  word/endnotes.xmlPK-      ! 0İC)¨  ¤               >-  word/theme/theme1.xmlPK-      ! Š«ïm  \               4  word/settings.xmlPK-      ! à2”È§  q               µ8  word/webSettings.xmlPK-      ! öJ  v               :  docProps/core.xmlPK-      ! jV´	  UE               =  word/styles.xmlPK-      ! ~ñ’1h  Q               PF  word/fontTable.xmlPK-      ! \Š¯å{  Ë               èH  docProps/app.xmlPK      @  ™K    ============================================
+src/README
+09:54:52_Tuesday_01_May_2012
+============================================
+My name is Wei Han (weih 523979). Currently I'm a MIT student. In my previous studying, I've fiished the 7 subjects in MIT. The main programming language used in those subjects is Java. I also studied some declaraive programming such as Haskell and Mercury. But for the Python, I donb't have any experience, so the studing and practise Python is part of reason I selecting COMP90016 Computational Genomics subject.  
+
+In this assignment3, I complted all the three stages of the assignment. The program file name and running command are same as the Assignment3 specification. I also submit a stage2.py file which is my assingment1 stage2 program used to process the output of this assignment.
+
+The submit files also include a Interpretation.docx file. It should be open in the MS Office2007 or higher.
+============================================
+src/stage2.py
+09:54:52_Tuesday_01_May_2012
+============================================
+#! /usr/bin/python
+
+#  	File  	: stage2.py
+#	Author 	: wei han (weih 523979)
+#	Date	: Fri. Mar. 23, 2012
+#
+#	Description:
+#	The stage2.py is the extension of stage1.py. it intend to process a input 
+#	FASTA file which contain multiple DNA sequence and output their statics 
+#	information of them.
+#		
+#	In FASTA file which contain multiple DNA sequence, every sequence start
+#	with a header line which begin with '>' and following some general 
+#	information, the progrom will display this original line. 
+#	The lines following this header line contain the real DNA sequence info. 
+#
+#	The output statics info for each DNA seq are same as in stage1.py, i.e.:
+#	DNA sequence length,
+#	the percentage of C+G nucleotides in the inout DNA sequence
+#	the entropy og the input sequence
+#	
+#	The main data structure used in this program including:
+#	dict_list: the list of dictionary which every item a DNA stat info Dictionary 
+#	header_list: a list which every item is a input DNA sequrence header line
+#	dna_dict: a dictionary type which storing a input DNA sequence statics info
+#	header: a string which storing a input DNA sequence's header information
+#
+
+import math
+
+dict_list = []  #dictionary list 
+header_list = []  # string list
+
+while True:  #loop until the finish of input file
+	try:
+		line = raw_input()  #read a new line
+
+		if line[0] == '>':  #if the line is the header line
+			# creating a new header line
+			header = line
+			# creating a new dictionary item to store the input DNA info
+			dna_dict = {'A':0,'C':0,'T':0,'G':0} 
+			# append the created header line and dictionary item into list
+			header_list.append(header)  
+			dict_list.append(dna_dict)
+			
+		else: # DNA seq line
+			# remove the newline character at the end of each line
+			line = line.rstrip()
+			line = line.upper()
+
+			length = len(line)
+
+			i = 0
+
+			# store the input DNA seq into dna_dict dictionary
+			while ((i<length)and(line[i] in "ACTG")): 		
+				dna_dict[line[i]] +=1
+				i+=1
+				
+	# get out of the while loop if raw_input() gives an error or
+	# end of the file is reached	
+	except:
+		break
+	
+LEN = len(dict_list)  # the DNA seq number in the file
+
+i=0
+while i<LEN:  # loop every DNA item in the list
+	# print the header line
+	print header_list[i]
+	
+	# calculating and print DNA sequence item's length
+	length = dict_list[i]['A'] + dict_list[i]['C'] + dict_list[i]['G'] + dict_list[i]['T']
+	s = '{0} {1}'
+	s = s.format('length:',length)
+	print s
+
+	# calculating and print C+G percentage in the corresponding DNA seq 
+	lenCG = dict_list[i]['G']+dict_list[i]['C']
+	lenCG = int(float(lenCG)/float(length)*100)
+	s = '{0} {1}{2}'
+	s = s.format('G+C:',lenCG, '%')
+	print s
+
+	# calculating the percentage of each nucleotides 
+	pA = float(dict_list[i]['A'])/float(length)
+	pC = float(dict_list[i]['C'])/float(length)
+	pG = float(dict_list[i]['G'])/float(length)
+	pT = float(dict_list[i]['T'])/float(length)
+
+	# calculating and print rntropy in the corresponding DNA seq 
+	entro = -pA*math.log(pA,2)-pC*math.log(pC,2)-pG*math.log(pG,2)-pT*math.log(pT,2)
+	print "entropy: %.1f" %entro
+	
+	i+=1  # move to next DNA sequnece
+

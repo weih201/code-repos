@@ -1,0 +1,14 @@
+#Fat Jar Configuration File
+#Thu Oct 13 14:12:14 EST 2011
+onejar.license.required=true
+manifest.classpath=
+manifest.removesigners=true
+onejar.checkbox=false
+jarname=RaceCarService_fat.jar
+manifest.mergeall=true
+manifest.mainclass=RaceCarService
+manifest.file=<createnew>
+jarname.isextern=false
+onejar.expand=
+excludes=
+includes=

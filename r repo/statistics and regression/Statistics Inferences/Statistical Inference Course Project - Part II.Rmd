@@ -1,0 +1,174 @@
+---
+title: "Statistical Inference Course Project - Part II"
+output: pdf_document
+---
+
+In this part, we will do some analyzing to the ToothGrowth data in the R datasets package
+
+## Loading the ToothGrowth data and perform some basic exploratory data analyses 
+The data loading is with the command: data("ToothGrowth"). Then,we can do some exploratory for the ToothGrowth data set:
+
+With str() function, we can get the data fields names, types and some initial vaues as:
+```{r,echo=FALSE}
+data("ToothGrowth")
+str(ToothGrowth)
+```
+From here, we know there are three variables "len","supp" and "dose" and total 60 bservation in the data set.
+
+Now, we can show these data with graphically expresion to make more clear:
+
+```{r,echo=FALSE, fig.width=3.5,fig.height=2.5}
+ToothGrowth$dose=as.factor(ToothGrowth$dose)
+ToothGrowth$supp=as.factor(ToothGrowth$supp)
+
+library(ggplot2)
+g <- ggplot(ToothGrowth, aes(x = supp, y = len, group = dose))
+g <- g + geom_point(size = 5, aes(colour = dose))  
+g + labs(x = "supp", y = "Length of toothgrowth")+ggtitle("Toothgrowth Length ~ supp")
+
+g <- ggplot(ToothGrowth, aes(x = dose, y = len, group = supp))
+g <- g + geom_point(size = 5, aes(colour = supp))
+g + labs(x = "dose", y = "Length of toothgrowth")+ggtitle("Toothgrowth Length ~ dose")
+```
+
+From above graph, we can see that toothgrow length can be grouped by dose and supp variables. 
+
+
+## Provide a basic summary of the data
+Now, we need check ToothGrowth's more detail statistics info. Let's start from summary(ToothGrowth): 
+```{r,echo=FALSE}
+  summary(ToothGrowth)
+```
+This gives us the total mean length as `r mean(ToothGrowth$len)`. We also can get length standard deviation as `r sd(ToothGrowth$len)`. 
+
+We also can get each group's mean lenght and standard deviation as:
+
+Grouped by 'supp': means are `r with(ToothGrowth,tapply(len,supp,mean))`, sds are `r with(ToothGrowth,tapply(len,supp,sd))`.
+
+Grouped by 'dose': means are `r with(ToothGrowth,tapply(len,dose,mean))`, sds are `r with(ToothGrowth,tapply(len,dose,sd))`.
+
+## Use confidence intervals and hypothesis tests to compare tooth growth by supp and dose
+
+From previous discussion, we can find that there are equal elements in each supp or dose group. But there is no information can indicate whether the testing is paired or non-paired. So the hypothesis testing will be performed in paired, non-paired, and non-paried and equal-variance these three assumptions.
+
+The confidence intercal results grouped by supp is:
+```{r,echo=FALSE}
+groupsComare<-function(grp1,grp2){
+  g1 <- grp1$len; g2 <- grp2$len;
+  
+  rbind(
+    as.vector(t.test(g2,g1,paired = TRUE)$conf.int),
+    as.vector(t.test(g2, g1)$conf.int),
+    as.vector(t.test(g2,g1,var.equal=TRUE)$conf.int)
+  )
+}
+## slicing the original data by supp and dose
+supp.vc <- subset(ToothGrowth,supp=="VC")
+supp.oj <- subset(ToothGrowth,supp=="OJ")
+
+dose.0.5<- subset(ToothGrowth,dose==0.5)
+dose.1.0<- subset(ToothGrowth,dose==1.0)
+dose.2.0<- subset(ToothGrowth,dose==2.0)
+
+rnames<-c("paired","unpaired","unpaired(equalVar)")
+
+suppnames<-c("CIlo","CIhi")
+dosenames<-c("CIl(0.5~1.0)","CIh(0.5~1.0","CIl(1.0~2.0)",
+             "CIh(1.0~2.0)","CIl(0.5~2.0)","CIh(0.5~2.0)")
+## Compare tooth growth by supp
+## Null hypothesis: True difference in means is equal to 0
+supp<-groupsComare(supp.vc,supp.oj)
+rownames(supp)<-rnames
+colnames(supp)<-suppnames
+supp
+```
+
+From this ouptput, we can say that there is a confidence difference between OJ and VC if the paired hypoyhesis is true.
+For both of the unpaired testing contains the zero, we cannot say there is a confidence difference between OJ and VC if unpaired assumption is true.
+
+The comparing results between different dose values are:
+```{r, echo=FALSE}
+dose<-cbind(groupsComare(dose.0.5,dose.1.0),groupsComare(dose.1.0,dose.2.0),
+            groupsComare(dose.0.5,dose.2.0))
+rownames(dose)<-rnames
+colnames(dose)<-dosenames
+dose
+```
+From the testing results, we can find that any two different groups based on dose's three confidence interval testings are above zero. This shows the bigger dose intaking is better for the tooth growth.
+
+## Conclusions and the assumptions 
+From above data exploratory and hypothesis testing, we can have the following conclusions:
+
+  * Each dose or supp based group has the same number of the elements
+  * There's no other information indicating the different groups are paired or non-paired.
+  * So the hypothesis testing will be performed on paired, non-paired, and non-paried and equal-variance
+  * The supp based groups testing shows there isn't confidence difference between VC and OJ on unpaired assumptions
+  * The supp based groups testing shows there is confidence difference between VC adn OJ on paired assumptions
+  * Different dose group testing show there are confidence difference between groups on all three assumptions
+  * Different dose intaking is more efficitvie for tooth growth than differnt supp
+  * The bigger dose taking, the better for tooth growth
+
+
+## Appendix
+This appendix is used to show the simulation codes used in the report.
+
+```{r,echo=TRUE, results='hide',fig.show='hide'}
+data("ToothGrowth")
+str(ToothGrowth)
+
+ToothGrowth$dose=as.factor(ToothGrowth$dose)
+ToothGrowth$supp=as.factor(ToothGrowth$supp)
+
+library(ggplot2)
+g <- ggplot(ToothGrowth, aes(x = supp, y = len, group = dose))
+g <- g + geom_point(size = 5, aes(colour = dose))  
+g + labs(x = "supp", y = "Length of toothgrowth")+ggtitle("Toothgrowth Length ~ supp")
+
+g <- ggplot(ToothGrowth, aes(x = dose, y = len, group = supp))
+g <- g + geom_point(size = 5, aes(colour = supp))
+g + labs(x = "dose", y = "Length of toothgrowth")+ggtitle("Toothgrowth Length ~ dose")
+
+summary(ToothGrowth)
+sd(ToothGrowth$len)
+
+with(ToothGrowth,tapply(len,supp,mean))
+with(ToothGrowth,tapply(len,supp,sd))
+
+with(ToothGrowth,tapply(len,dose,mean))
+with(ToothGrowth,tapply(len,dose,sd))
+
+groupsComare<-function(grp1,grp2){
+  g1 <- grp1$len; g2 <- grp2$len;
+  
+  rbind(
+    as.vector(t.test(g2,g1,paired = TRUE)$conf.int),
+    as.vector(t.test(g2, g1)$conf.int),
+    as.vector(t.test(g2,g1,var.equal=TRUE)$conf.int)
+  )
+}
+## slicing the original data by supp and dose
+supp.vc <- subset(ToothGrowth,supp=="VC")
+supp.oj <- subset(ToothGrowth,supp=="OJ")
+
+dose.0.5<- subset(ToothGrowth,dose==0.5)
+dose.1.0<- subset(ToothGrowth,dose==1.0)
+dose.2.0<- subset(ToothGrowth,dose==2.0)
+
+rnames<-c("paired","unpaired","unpaired(equalVar)")
+
+suppnames<-c("CIlo","CIhi")
+dosenames<-c("CIl(0.5~1.0)","CIh(0.5~1.0","CIl(1.0~2.0)",
+             "CIh(1.0~2.0)","CIl(0.5~2.0)","CIh(0.5~2.0)")
+## Compare tooth growth by supp
+## Null hypothesis: True difference in means is equal to 0
+supp<-groupsComare(supp.vc,supp.oj)
+rownames(supp)<-rnames
+colnames(supp)<-suppnames
+supp
+
+dose<-cbind(groupsComare(dose.0.5,dose.1.0),groupsComare(dose.1.0,dose.2.0),
+            groupsComare(dose.0.5,dose.2.0))
+rownames(dose)<-rnames
+colnames(dose)<-dosenames
+dose
+```

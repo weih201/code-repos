@@ -1,0 +1,171 @@
+---
+title: "Practical Machine Learning  Course Project"
+output: html_document
+---
+
+
+
+## Background
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. This project will use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. 
+
+More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). 
+
+## Tasks
+The goal of this project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. You may use any of the other variables to predict with. You should create a report describing how you built your model, how you used cross validation, what you think the expected out of sample error is, and why you made the choices you did. You will also use your prediction model to predict 20 different test cases. 
+
+## Data Sources
+The training data for this project are available here: 
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here: 
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignment. 
+
+## Data loading and Overviewing
+The first step is the data loading. There are 2 data sets, the training data set and the testing data set we are attempting to perform the predictions from the final model on. Both of them are csv form, we can use read.csv function to load them.
+```{r,echo=TRUE,message=FALSE}
+rm(list=ls())
+library(caret)
+library(randomForest)
+library(gbm)
+library(plyr)
+setwd("C:/my home/coursera/Data Science Specialization/Practical Machine Learning/projects")
+raw.data<-read.csv("pml-training.csv",na.strings = c("NA", ""))
+submit.data<-read.csv("pml-testing.csv")
+```
+
+After loading the data we can do an initial overview for the data:
+```{r,echo=TRUE}
+nrow(raw.data)
+ncol(raw.data)
+str(raw.data,list.len=15)
+```
+So there are `r nrow(raw.data)` observations in the data set. Every observation contains `r ncol(raw.data)` variables.
+
+## Data clean and preprocessing
+
+### Removing NA and "" columns
+`r ncol(raw.data)` variables are too big for compter processing, and we need do the data clean and preprocesing firstly.
+
+From simple observation, we can find the first seven columns of the raw data only contain the information of Removing first cols which only including log information like seq No, use_name, time_stamp etc. These log info are not related to the activity measurements. We also can see that there are many NAs and "" in some columns. So as the first step data cleaning, we can remove these columns 
+```{r,echo=TRUE}
+## Removing first 7 cols which only including log info seq No, user_name,time_stamp etc info
+clean.data<-raw.data[, -(1:7)]
+
+## Removing cols only containing NA or ""
+thres <- nrow(clean.data) * 0.95  ## Setting threshoold as more than95% of NAs or ""
+nNaColumns <- !apply(clean.data, 2, function(x) sum(is.na(x)) > thres  || sum(x=="") > thres)
+clean.data <- clean.data[, nNaColumns]
+
+rm(raw.data)  # delete raw.data
+```
+
+### Removing near zero variance columns
+As the next step of the data cleaning, we can further removing those columns which value nearly no changing. This is can be performed with nearZeroVar function in caret package.
+```{r,echo=TRUE}
+nzColumns <- nearZeroVar(clean.data, saveMetrics = TRUE)
+clean.data <- clean.data[, nzColumns$nzv==FALSE]
+clean.data$classe = factor(clean.data$classe)
+```
+Now, there are only `r ncol(clean.data)` columns left.
+
+### Removing non-important columns
+With above data processing, we succeed reducing the data set variable number from 160 to `r ncol(clean.data)`. But for the computer memory limitions, some r classification methods such as Random Forest classification etc are still dificult to perform. So I have to further reduce the data variables number.
+
+From some initial testing, we can find Random Forest method has the highest classification accuracy, so the further data processing is based on the RF classification.
+
+Firstly, using RF method training a small section (20%) of the data set.
+```{r,echo=TRUE}
+## Vars importances analysis
+set.seed(12345)
+inAnalysis <- createDataPartition(clean.data$classe, p = 0.2, list = FALSE)
+analysis.set <- clean.data[inAnalysis, ]  ##  20% data for importance analysis
+modanalysis<-randomForest(classe ~.,data=analysis.set)
+```
+
+The next step is do the variable importance analysis for this model via varImp function:
+```{r,echo=TRUE}
+impVars <- varImp(modanalysis)
+varnames<-rownames(impVars)
+varOrders<-data.frame(varnames=varnames,impVars)
+varOrders<-arrange(varOrders,desc(Overall))
+ggplot(varOrders, aes(x=reorder(varnames,desc(Overall)),y=Overall,fill=varnames)) + 
+  geom_bar(stat="identity") + theme(legend.position="none")+
+  xlab("Feature Name")+guides(fill=FALSE)+
+  ylab("Importance Value")+ggtitle("Features Importance")+
+  theme(axis.text.x=element_text(angle=75,hjust=1)) + 
+  theme(plot.title = element_text(size=14, face="bold"))
+varOrders[1:40,]
+```
+
+From above variables importance analysis, we can see that different variables' importance values varies too much, so we further try to trim those unimportant variables form the data set. 
+
+In the implemenatation, I trimed out those variables whose importance value less than 30:
+```{r,echo=TRUE}
+impNames<-as.character(varOrders[varOrders$Overall>30,]$varnames)
+impNames<-c("classe",impNames)
+topImpCols<-unlist(lapply(names(clean.data), function(name){name %in% impNames}))
+
+clean.data<-clean.data[,topImpCols]
+ncol(clean.data)
+```
+We can see that there are only `r ncol(clean.data)` variables left.
+
+##  Data partition
+
+Now, we can do the data set partition
+```{r,echo=TRUE}
+inTrain <- createDataPartition(clean.data$classe, p = 0.75, list = FALSE)
+train.set <- clean.data[inTrain, ]  ##  75% data as the train data
+test.set <- clean.data[ -inTrain, ] 
+```
+
+##  Prediction models training
+
+The selected prediction models are Random Forest and KNN methods.
+```{r,echo=TRUE,cache=TRUE}
+modRF<-randomForest(classe ~.,data=train.set)
+ctrlKNN = trainControl(method = "adaptive_cv")
+modKNN = train(classe ~ ., data=train.set, method = "knn", trControl = ctrlKNN)
+```
+
+## Cross-Validation and out of sample error estimating;
+With the trained models, can do the cross-validation on the testing data set:
+```{r,echo=TRUE}
+predRF<-predict(modRF,test.set)
+rfMatrix<-confusionMatrix(predRF, test.set$classe)
+rfMatrix
+
+predKNN<-predict(modKNN,test.set)
+knnMatrix<-confusionMatrix(predKNN, test.set$classe)
+knnMatrix
+```
+
+We can see that althogh we have trimed the variables number to `r ncol(clean.data)`, the Random Forest still has the above `r rfMatrix$overall[1]` accuracy rate. 
+
+KNN's accuracy is about 92%, which is : `r knnMatrix$overall[1]`.
+
+So we get the Random Forest method's out of sample error rate as: `r 1-rfMatrix$overall[1]`.
+
+The KNN method's  out of sample error rate as: `r 1-knnMatrix$overall[1]`.
+
+For Random Forest method has the lower out of sample error rate, we select it as the final prediction model ad use it to predict needed 20 different test cases. 
+
+## Submitting cases
+
+The predicting results as below:
+```{r,echo=TRUE}
+## Submission Predict
+answer <- predict(modRF, submit.data)
+answer
+```
+Submitting above result to the grader, we can get the perfect 100% correctness.
+
+
+## Conclusion
+In this project, a predicting model manner of people do exercise was made. By reomving the almost NAs and balank columns, alomst non-changed columnes, just log info columns and the not important columns, the variables number was succeeded reduced from 160 to  `r ncol(clean.data)`. 
+
+Wtih the random forest classification methode, the predication model's out of sample error rate was get at:  `r 1-rfMatrix$overall[1]`. 
+
+Implementing the model to 20 test cases, the predicting got the 100% correctness rate.

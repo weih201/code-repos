@@ -1,0 +1,8 @@
+To complie DictClient:
+
+cd   \...\523979\src\DictClient
+javac *.java
+
+To Start Client:
+cd   \...\523979\src\DictClient
+java DictClient <server-address>  <server-port>   <word-to-look-for>

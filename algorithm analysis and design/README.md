@@ -1,2 +1,2 @@
 ## Algorithm analysis repos
-This repo contains some my algorithms analysis experiment codes. Most of them come from Standford's "Algorithm design and analysis" course via Coursera. Most of them are implemented with both of Python and Scala.
+This repo contains some my algorithms analysis experiment codes. Most of them are my Standford University's "Algorithm design and analysis" course project via Coursera. Most of them are implemented with two versions: Python and Scala.

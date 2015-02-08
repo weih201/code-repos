@@ -3,8 +3,6 @@
 #    finalPrj.py
 #
 #  DESCRIPTION
-#    In Problem Set 4, you will classify EEG data into NREM sleep stages and
-#    create spectrograms and hypnograms.
 #
 from __future__ import division
 import numpy as np

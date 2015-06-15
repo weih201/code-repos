@@ -36,3 +36,7 @@ https://github.com/weih201/code-repos/tree/master/algorithm%20analysis%20and%20d
 ####  A heap based program to output the median series for input number stream:
 https://github.com/weih201/code-repos/tree/master/algorithm%20analysis%20and%20design/two-sums%20and%20median%20maintains
 
+####  A heap implementation which used in other alorithms in the repo:
+https://github.com/weih201/code-repos/tree/master/algorithm%20analysis%20and%20design/my%20Heap
+
+

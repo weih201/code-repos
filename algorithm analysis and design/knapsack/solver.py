@@ -6,7 +6,7 @@ from copy import deepcopy
 import numpy as np
 Item = namedtuple("Item", ['index', 'value', 'weight'])
 
-df=False
+df=True
 
 def solve_it(input_data):
     # parse the input
@@ -50,7 +50,7 @@ def solve_it(input_data):
     output_data += ' '.join(map(str, taken))
     return output_data
 
-def bb_search(room,items):
+def bb_search(room,items):  ## Branch -bound solution
     items.sort(key=lambda x: (float(x.value)/x.weight,x.value), reverse=True)
     densities = [float(x.value)/x.weight  for x in items]
     
@@ -115,7 +115,7 @@ def getEstimation(room,items):
             break
     return optimal
 
-def dp_fill_tbl(capacity,items,v_table):
+def dp_fill_tbl(capacity,items,v_table):  ## Table filling for dynamic programming approach 
     for i in np.arange(len(items)):
         for cap in np.arange(capacity+1):
             above = (0,[])
@@ -153,4 +153,5 @@ if __name__ == '__main__':
         print solve_it(input_data)
     else:
         print 'This test requires an input file.  Please select one from the data directory. (i.e. python solver.py ./data/ks_4_0)'
+
 
